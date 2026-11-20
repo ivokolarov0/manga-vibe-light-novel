@@ -1,0 +1,117 @@
+/* Light novel reader (reader.js). Everything sits inside MangaVibe's reader screen (#reader), which
+   reader.js fills with .ln-root. The size, spacing, width and font come from reader.js as variables. */
+#reader.plugin-reader { background: var(--ln-bg, #16181d); }
+
+#reader .ln-root {
+  --ln-bg: #16181d; --ln-fg: #dcd8cf; --ln-muted: #9a978f; --ln-accent: var(--accent, #ff7a59);
+  --ln-bar: color-mix(in srgb, var(--ln-bg) 90%, transparent); --ln-line-c: color-mix(in srgb, var(--ln-fg) 14%, transparent);
+  --ln-panel: color-mix(in srgb, var(--ln-bg) 92%, var(--ln-fg));
+  position: absolute; inset: 0; background: var(--ln-bg); color: var(--ln-fg); outline: none;
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+#reader .ln-root.ln-theme-black { --ln-bg: #000; --ln-fg: #c8c8c8; --ln-muted: #8a8a8a; }
+#reader .ln-root.ln-theme-sepia { --ln-bg: #f3ead7; --ln-fg: #3d3124; --ln-muted: #7b6a55; color-scheme: light; }
+#reader .ln-root.ln-theme-light { --ln-bg: #fbfbf8; --ln-fg: #1f1f22; --ln-muted: #6a6a70; color-scheme: light; }
+
+/* ---------------------------------------------------------------- bars */
+#reader .ln-bar {
+  position: absolute; left: 0; right: 0; z-index: 2; display: flex; align-items: center; gap: 4px;
+  padding: 6px max(8px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
+  background: var(--ln-bar); backdrop-filter: blur(10px);
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
+#reader .ln-top { top: 0; border-bottom: 1px solid var(--ln-line-c); padding-top: max(6px, env(safe-area-inset-top)); }
+#reader .ln-bottom { bottom: 0; border-top: 1px solid var(--ln-line-c); justify-content: space-between;
+  padding-bottom: max(6px, env(safe-area-inset-bottom)); }
+#reader .ln-bars-hidden .ln-top { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+#reader .ln-bars-hidden .ln-bottom { transform: translateY(100%); opacity: 0; pointer-events: none; }
+#reader .ln-titles { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+#reader .ln-titles b, #reader .ln-titles span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#reader .ln-titles span { color: var(--ln-muted); font-size: 13px; }
+#reader .ln-where { color: var(--ln-muted); font-size: 13px; font-variant-numeric: tabular-nums; text-align: center; }
+#reader .ln-icon {
+  display: inline-grid; place-items: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 10px;
+  background: transparent; color: inherit; cursor: pointer;
+}
+#reader .ln-icon:hover:not(:disabled) { background: var(--ln-line-c); }
+#reader .ln-icon:disabled { opacity: 0.3; cursor: default; }
+#reader .ln-icon:focus-visible, #reader .ln-btn:focus-visible, #reader .ln-panel button:focus-visible {
+  outline: 2px solid var(--ln-accent); outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- the text */
+#reader .ln-view { position: absolute; inset: 0; }
+#reader .ln-scroll .ln-view { overflow-y: auto; overscroll-behavior: contain; padding: 72px 20px 96px; }
+#reader .ln-pages .ln-view { overflow: hidden; top: 60px; bottom: 52px; touch-action: pinch-zoom; }
+#reader .ln-text {
+  font-family: var(--ln-font); font-size: var(--ln-size); line-height: var(--ln-line);
+  user-select: text; -webkit-user-select: text; overflow-wrap: break-word;
+}
+#reader .ln-scroll .ln-text { max-width: var(--ln-width); margin: 0 auto; }
+#reader .ln-pages .ln-text { box-sizing: border-box; column-fill: auto; }
+#reader .ln-text p { margin: 0 0 0.85em; }
+#reader .ln-text h1, #reader .ln-text h2, #reader .ln-text h3 { line-height: 1.3; margin: 1.2em 0 0.8em; font-weight: 650; }
+#reader .ln-text h1 { font-size: 1.5em; } #reader .ln-text h2 { font-size: 1.3em; } #reader .ln-text h3 { font-size: 1.15em; }
+#reader .ln-text h1:first-child, #reader .ln-text h2:first-child, #reader .ln-text h3:first-child { margin-top: 0.3em; }
+#reader .ln-text img { display: block; max-width: 100%; height: auto; margin: 1em auto; border-radius: 4px; }
+#reader .ln-pages .ln-text img { max-height: calc(var(--ln-h, 80vh) - 2em); object-fit: contain; break-inside: avoid; }
+#reader .ln-text figure { margin: 1em 0; break-inside: avoid; }
+#reader .ln-text figcaption { color: var(--ln-muted); font-size: 0.85em; text-align: center; }
+#reader .ln-text blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid var(--ln-line-c); }
+#reader .ln-text hr { border: 0; border-top: 1px solid var(--ln-line-c); margin: 1.6em 20%; }
+#reader .ln-text rt { font-size: 0.55em; }
+#reader .ln-text a { color: var(--ln-accent); }
+#reader .ln-text table { border-collapse: collapse; margin: 1em 0; }
+#reader .ln-text td, #reader .ln-text th { border: 1px solid var(--ln-line-c); padding: 0.2em 0.5em; }
+#reader .ln-text .ln-center { text-align: center; }
+#reader .ln-text .ln-right { text-align: right; }
+#reader .ln-justify .ln-text p { text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+#reader .ln-text ::selection { background: color-mix(in srgb, var(--ln-accent) 35%, transparent); }
+
+#reader .ln-end { margin: 3em 0 1em; text-align: center; break-inside: avoid; font-family: system-ui, sans-serif;
+  font-size: 15px; line-height: 1.4; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#reader .ln-end p { color: var(--ln-muted); margin: 0; }
+#reader .ln-btn {
+  min-height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--ln-line-c);
+  background: transparent; color: inherit; font: inherit; cursor: pointer; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#reader .ln-btn.primary { background: var(--ln-accent); border-color: transparent; color: var(--accent-text, #1d0d07); font-weight: 600; }
+#reader .ln-message { text-align: center; margin-top: 30vh; font-family: system-ui, sans-serif; font-size: 15px; }
+
+/* ---------------------------------------------------------------- panels */
+#reader .ln-panel {
+  position: absolute; z-index: 3; top: 60px; right: 12px; width: min(360px, calc(100% - 24px));
+  max-height: calc(100% - 130px); overflow-y: auto; overscroll-behavior: contain; padding: 0 14px 14px;
+  background: var(--ln-panel); color: var(--ln-fg); border-radius: 16px; border: 1px solid var(--ln-line-c);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.4);
+}
+#reader .ln-panel[hidden] { display: none; }
+#reader .ln-panel-head { display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0;
+  z-index: 1; background: var(--ln-panel); padding: 8px 0 6px; border-bottom: 1px solid var(--ln-line-c); }
+#reader .ln-toc { list-style: none; margin: 0; padding: 0; }
+#reader .ln-toc button {
+  display: block; width: 100%; text-align: left; padding: 10px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+#reader .ln-toc button:hover { background: var(--ln-line-c); }
+#reader .ln-toc button.current { color: var(--ln-accent); font-weight: 600; }
+#reader .ln-setting { display: grid; gap: 6px; margin: 10px 0 14px; }
+#reader .ln-setting > span { color: var(--ln-muted); font-size: 13px; }
+#reader .ln-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+#reader .ln-chips button, #reader .ln-stepper button {
+  min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--ln-line-c);
+  background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+#reader .ln-chips button[aria-pressed="true"] { background: var(--ln-accent); color: var(--accent-text, #1d0d07); border-color: transparent; }
+#reader .ln-stepper { display: flex; align-items: center; gap: 10px; }
+#reader .ln-stepper output { min-width: 2.5em; text-align: center; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 600px) {
+  /* phones: the panels are sheets along the bottom */
+  #reader .ln-panel { top: auto; bottom: 64px; left: 8px; right: 8px; width: auto; max-height: 65%; }
+  #reader .ln-scroll .ln-view { padding-left: 18px; padding-right: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #reader .ln-bar { transition: none; }
+}
