@@ -1,7 +1,8 @@
 """Light novel reader: reads the text EPUBs in a MangaVibe library (light novels) as text, with the
 font, size, spacing, colours and layout each reader likes. A folder plugin: this folder goes into
-MangaVibe's data folder as plugins/light_novel/ (see the README). Needs Plugin API 22 (MangaVibe 3.0.0):
-the reader itself is API 14, and it imports only the SDK (API 22).
+MangaVibe's data folder as plugins/light_novel/ (see the README). Needs Plugin API 38 (MangaVibe 3.11.0):
+the reader itself is API 14, it imports only the SDK (API 22), and its buttons and choices are the UI
+kit's in its new look (API 38).
 
 MangaVibe's scan keeps a text EPUB as a book of format "epub-text" whose sections (the spine's
 documents) count as its pages, so progress, Continue reading and tracker sync work as for any book.
@@ -15,8 +16,8 @@ from pathlib import Path
 
 from app.plugins import API_VERSION, Plugin
 
-if API_VERSION < 22:
-    raise RuntimeError("Light novel reader needs a newer MangaVibe (3.0.0, Plugin API 22): update MangaVibe first.")
+if API_VERSION < 38:
+    raise RuntimeError("Light novel reader needs a newer MangaVibe (3.11.0, Plugin API 38): update MangaVibe first.")
 
 from . import api  # noqa: E402
 
@@ -30,7 +31,7 @@ def _read(name):
 class LightNovelReader(Plugin):
     id = api.PLUGIN_ID
     name = "Light novel reader"
-    version = "1.1.0"  # a release tagged v<version> is offered as an update (see README)
+    version = "1.2.0"  # a release tagged v<version> is offered as an update (see README)
     repo = "ivokolarov0/manga-vibe-light-novel"
     category = "reader"
     description = ("Reads light novels (text EPUBs) as text: chapters, contents, font, size, spacing, "

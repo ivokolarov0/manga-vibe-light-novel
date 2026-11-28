@@ -6,7 +6,9 @@
    The text comes from this plugin's API already made safe (epub.py), so it's put in as it is.
    Two layouts: scrolling, or pages (CSS columns, each one screen wide: see layoutPages). How far into the
    section the reader is (0 to 1) is saved to the API, so the book opens there again on any device.
-   The look (size, font, spacing, colours, width, layout) is per device, in localStorage. */
+   The look (size, font, spacing, colours, width, layout) is per device, in localStorage.
+   The buttons and choices are MangaVibe's UI kit (.btn, .iconbtn, .segmented with the kit's "choice"
+   piece, Plugin API 38); reader.css points the kit's tokens at the reader's own colour theme. */
 (() => {
 "use strict";
 const ID = "light-novel", API = `/api/plugins/${ID}/api`;
@@ -24,7 +26,7 @@ const PREFS_KEY = "light-novel:prefs";
 const TAP_SIDE = 0.3;  // pages: the left and right parts of the screen that turn the page
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const svg = (d) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+const svg = (d) => `<svg class="ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICONS = {
   back: svg('<path d="M19 12H5M11 6l-6 6 6 6"/>'),
@@ -51,21 +53,21 @@ function open(el, book, ctl) {
   close();
   P = loadPrefs();
   S = { el, book, ctl, n: ctl.page, at: 0, sections: [], cache: new Map(), page: 0, pages: 1,
-    panel: null, busy: 0, posTimer: null, posDirty: false, done: book.completed, abort: new AbortController() };
+    panel: null, undoChoices: [], busy: 0, posTimer: null, posDirty: false, done: book.completed, abort: new AbortController() };
   el.innerHTML = `
     <div class="ln-root" tabindex="-1">
       <header class="ln-bar ln-top">
-        <button class="ln-icon" data-do="back" aria-label="Back" title="Back">${ICONS.back}</button>
+        <button class="iconbtn" data-do="back" aria-label="Back" title="Back">${ICONS.back}</button>
         <div class="ln-titles"><b>${esc(book.series_title)}</b><span class="ln-chapter"></span></div>
-        <button class="ln-icon" data-do="contents" aria-label="Contents" title="Contents">${ICONS.contents}</button>
-        <button class="ln-icon" data-do="settings" aria-label="Text and layout" title="Text and layout">${ICONS.settings}</button>
-        <button class="ln-icon ln-fs" data-do="fullscreen" aria-label="Fullscreen" title="Fullscreen">${ICONS.fullscreen}</button>
+        <button class="iconbtn" data-do="contents" aria-label="Contents" title="Contents">${ICONS.contents}</button>
+        <button class="iconbtn" data-do="settings" aria-label="Text and layout" title="Text and layout">${ICONS.settings}</button>
+        <button class="iconbtn ln-fs" data-do="fullscreen" aria-label="Fullscreen" title="Fullscreen">${ICONS.fullscreen}</button>
       </header>
       <main class="ln-view"><article class="ln-text"></article></main>
       <footer class="ln-bar ln-bottom">
-        <button class="ln-icon" data-do="prev-section" aria-label="Previous chapter" title="Previous chapter">${ICONS.prev}</button>
+        <button class="iconbtn" data-do="prev-section" aria-label="Previous chapter" title="Previous chapter">${ICONS.prev}</button>
         <span class="ln-where" aria-live="polite"></span>
-        <button class="ln-icon" data-do="next-section" aria-label="Next chapter" title="Next chapter">${ICONS.next}</button>
+        <button class="iconbtn" data-do="next-section" aria-label="Next chapter" title="Next chapter">${ICONS.next}</button>
       </footer>
       <aside class="ln-panel" data-panel="contents" hidden></aside>
       <aside class="ln-panel" data-panel="settings" hidden></aside>
@@ -96,6 +98,7 @@ async function start(s) {
 function close() {
   if (!S) return;
   flushPosition();
+  undoChoices();
   S.abort.abort();
   clearTimeout(S.posTimer);
   S = null;
@@ -103,7 +106,8 @@ function close() {
 
 function showError(message) {
   S.text.innerHTML = `<div class="ln-message"><p>${esc(message)}</p>
-    <button class="ln-btn" data-do="retry">Try again</button> <button class="ln-btn" data-do="back">Back</button></div>`;
+    <div class="btn-row"><button class="btn" data-do="retry">Try again</button>
+    <button class="btn" data-do="back">Back</button></div></div>`;
 }
 
 /* ---------------------------------------------------------------- sections */
@@ -147,11 +151,11 @@ async function showSection(n, at = 0, { save = true, anchor = "" } = {}) {
 function endOfSection(n) {
   const last = n === S.book.page_count - 1, next = S.book.next;
   if (!last) {
-    return `<nav class="ln-end"><button class="ln-btn primary" data-do="next-section">Next: ${esc(titleOf(n + 1))}</button></nav>`;
+    return `<nav class="ln-end"><button class="btn primary" data-do="next-section"><span>Next: ${esc(titleOf(n + 1))}</span></button></nav>`;
   }
   return `<nav class="ln-end ln-finish"><p>The end of ${esc(S.book.label)}.</p>
-    ${next ? `<button class="ln-btn primary" data-do="next-book">Next: ${esc(next.label)}</button>` : ""}
-    <button class="ln-btn" data-do="back">Back to the series</button></nav>`;
+    ${next ? `<button class="btn primary" data-do="next-book"><span>Next: ${esc(next.label)}</span></button>` : ""}
+    <button class="btn" data-do="back"><span>Back to the series</span></button></nav>`;
 }
 
 /* ---------------------------------------------------------------- where in the section */
@@ -286,30 +290,57 @@ function drawContents() {
   // the chapter being read: the last named one at or before this section
   const cur = rows.reduce((c, [i]) => (i <= S.n ? i : c), rows[0]?.[0]);
   box.innerHTML = `<div class="ln-panel-head"><b>Contents</b>
-      <button class="ln-icon" data-do="close-panel" aria-label="Close">${ICONS.close}</button></div>
+      <button class="iconbtn" data-do="close-panel" aria-label="Close" title="Close">${ICONS.close}</button></div>
     <ol class="ln-toc">${rows.map(([i, t]) => `<li><button data-section="${i}" class="${i === cur ? "current" : ""}"
       ${i === cur ? 'aria-current="true"' : ""}>${esc(t)}</button></li>`).join("")}</ol>`;
   box.querySelector(".current")?.scrollIntoView({ block: "center" });
 }
 
-function chips(key, options, cur) {
-  return `<div class="ln-chips" role="group">${Object.entries(options).map(([v, label]) =>
-    `<button data-pref="${key}" data-value="${esc(v)}" aria-pressed="${String(v) === String(cur)}">${esc(label)}</button>`).join("")}</div>`;
+/* a setting's choices: the kit's .segmented, the picked one .on (see markSettings) */
+function choices(key, name, options) {
+  return `<div class="ln-setting"><span id="ln-name-${key}">${esc(name)}</span>
+    <div class="segmented" data-choice="${key}" aria-labelledby="ln-name-${key}">${Object.entries(options).map(([v, label]) =>
+      `<button type="button" data-pref="${key}" data-value="${esc(v)}">${esc(label)}</button>`).join("")}</div></div>`;
 }
 
 function drawSettings() {
   const box = S.root.querySelector('[data-panel="settings"]');
+  undoChoices();
   box.innerHTML = `<div class="ln-panel-head"><b>Text and layout</b>
-      <button class="ln-icon" data-do="close-panel" aria-label="Close">${ICONS.close}</button></div>
+      <button class="iconbtn" data-do="close-panel" aria-label="Close" title="Close">${ICONS.close}</button></div>
     <div class="ln-setting"><span>Size</span><div class="ln-stepper">
-      <button data-do="smaller" aria-label="Smaller text">A−</button><output>${P.size}</output>
-      <button data-do="bigger" aria-label="Bigger text">A+</button></div></div>
-    <div class="ln-setting"><span>Font</span>${chips("font", Object.fromEntries(Object.entries(FONTS).map(([k, [l]]) => [k, l])), P.font)}</div>
-    <div class="ln-setting"><span>Spacing</span>${chips("line", LINES, P.line)}</div>
-    <div class="ln-setting"><span>Width</span>${chips("width", WIDTHS, P.width)}</div>
-    <div class="ln-setting"><span>Colours</span>${chips("theme", THEMES, P.theme)}</div>
-    <div class="ln-setting"><span>Layout</span>${chips("layout", LAYOUTS, P.layout)}</div>
-    <div class="ln-setting"><span>Justify</span>${chips("justify", { false: "Off", true: "On" }, P.justify)}</div>`;
+      <button type="button" class="btn small" data-do="smaller" aria-label="Smaller text">A−</button><output></output>
+      <button type="button" class="btn small" data-do="bigger" aria-label="Bigger text">A+</button></div></div>
+    ${choices("font", "Font", Object.fromEntries(Object.entries(FONTS).map(([k, [l]]) => [k, l])))}
+    ${choices("line", "Spacing", LINES)}
+    ${choices("width", "Width", WIDTHS)}
+    ${choices("theme", "Colours", THEMES)}
+    ${choices("layout", "Layout", LAYOUTS)}
+    ${choices("justify", "Justify", { false: "Off", true: "On" })}`;
+  markSettings();
+  // the kit's choice piece (what x-choice runs): a radio group for screen readers, one Tab stop, the
+  // arrow keys move and pick. Called by hand: this markup isn't Alpine's.
+  const piece = MangaVibe.kit?.get?.("choice");
+  if (piece) {
+    for (const el of box.querySelectorAll(".segmented")) {
+      const undo = piece.setup({ el, options: { ...piece.options }, name: "choice" });
+      if (typeof undo === "function") S.undoChoices.push(undo);
+    }
+  }
+}
+
+/* the settings panel shows P: the picked choices .on, the size. In place, so the focus stays where it is */
+function markSettings() {
+  const box = S.root.querySelector('[data-panel="settings"]');
+  for (const b of box.querySelectorAll("button[data-pref]")) {
+    b.classList.toggle("on", b.dataset.value === String(P[b.dataset.pref]));
+  }
+  const out = box.querySelector(".ln-stepper output");
+  if (out) out.textContent = P.size;
+}
+
+function undoChoices() {
+  for (const undo of S.undoChoices.splice(0)) undo();
 }
 
 function setPref(key, value) {
@@ -321,7 +352,7 @@ function setPref(key, value) {
   layout();
   setAt(at);
   updateWhere();
-  if (S.panel === "settings") drawSettings();
+  if (S.panel === "settings") markSettings();
 }
 
 function applyPrefs() {
