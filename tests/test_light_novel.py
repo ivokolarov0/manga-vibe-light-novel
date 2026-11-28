@@ -122,6 +122,51 @@ def test_comics_are_refused(client):
     assert client.get(f"{API}/books/999999").status_code == 404
 
 
+def test_a_locked_library_stays_locked(client, novel):
+    from app.db import SessionLocal
+    from app.plugins.builtin.libraries import core as shelves
+    L = "/api/plugins/libraries/api"
+    sid = client.get(f"/api/books/{novel['id']}").json()["series_id"]
+    shelf = client.post(f"{L}/shelves", json={"name": "Novels"}).json()["id"]
+    try:
+        assert client.put(f"{L}/series/{sid}", json={"shelf_id": shelf}).status_code == 200
+        assert client.put(f"{L}/shelves/{shelf}/password", json={"password": "secret"}).status_code == 200
+        client.post(f"{L}/shelves/{shelf}/lock")
+        book = f"{API}/books/{novel['id']}"
+        for r in (client.get(book), client.get(f"{book}/sections/0"),
+                  client.get(f"{book}/file", params={"name": "OEBPS/images/pic.png"}),
+                  client.put(f"{book}/position", json={"section": 0, "at": 0.5})):
+            assert r.status_code == 403, r.request.url
+        assert client.post(f"{L}/shelves/{shelf}/unlock", json={"password": "secret"}).status_code == 200
+        assert client.get(book).status_code == 200
+    finally:
+        client.cookies.clear()
+        with SessionLocal() as db:
+            shelves.clear_passwords(db, "all")
+        client.put(f"{L}/series/{sid}", json={"shelf_id": 0})
+        client.delete(f"{L}/shelves/{shelf}")
+
+
+def test_imports_only_the_sdk():
+    """MangaVibe's SDK (docs/PLUGINS.md, The SDK): anything else in `app` may change in any version."""
+    import ast
+    from pathlib import Path
+    sdk = {"app.plugins", "app.plugins.web", "app.plugins.query", "app.plugins.sdk", "app.users"}
+    wrong = []
+    for path in (Path(__file__).resolve().parent.parent / "light_novel").glob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                # from app import users: the module app.users
+                mods = [f"app.{a.name}" for a in node.names] if node.module == "app" else [node.module]
+            elif isinstance(node, ast.Import):
+                mods = [a.name for a in node.names]
+            else:
+                continue
+            wrong += [f"{path.name}:{node.lineno} {m}" for m in mods
+                      if (m == "app" or m.startswith("app.")) and m not in sdk]
+    assert not wrong, wrong
+
+
 def test_clean_keeps_text_after_odd_markup():
     epub = _local_epub()
     out = epub.clean("<body><p>a<script/>b</p><style/><p>c<meta charset='x'>d</p></body>", "x.xhtml", ["x.xhtml"], set(),
