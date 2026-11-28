@@ -1,13 +1,23 @@
 /* Light novel reader (reader.js). Everything sits inside MangaVibe's reader screen (#reader), which
-   reader.js fills with .ln-root. The size, spacing, width and font come from reader.js as variables. */
+   reader.js fills with .ln-root. The size, spacing, width and font come from reader.js as variables.
+
+   The buttons and choices are MangaVibe's UI kit (.btn, .iconbtn, .segmented: docs/UI-KIT.md). The
+   reader has colour themes of its own (Sepia, Light… whatever the app's theme), so .ln-root points the
+   kit's tokens (--text, --muted, --border, --surface…) at the reader's theme, and the pieces inside
+   follow it. Their look is changed only through their custom properties; the rules below on them only
+   place them (a width, a row) or add a state the kit doesn't have (a disabled .iconbtn). */
 #reader.plugin-reader { background: var(--ln-bg, #16181d); }
 
 #reader .ln-root {
   --ln-bg: #16181d; --ln-fg: #dcd8cf; --ln-muted: #9a978f; --ln-accent: var(--accent, #ff7a59);
   --ln-bar: color-mix(in srgb, var(--ln-bg) 90%, transparent); --ln-line-c: color-mix(in srgb, var(--ln-fg) 14%, transparent);
   --ln-panel: color-mix(in srgb, var(--ln-bg) 92%, var(--ln-fg));
+  /* the kit's tokens, from the reader's theme */
+  --text: var(--ln-fg); --muted: var(--ln-muted); --faint: var(--ln-muted); --border: var(--ln-line-c);
+  --surface: var(--ln-bg); --surface2: color-mix(in srgb, var(--ln-panel) 90%, var(--ln-fg));
+  --surface3: color-mix(in srgb, var(--ln-panel) 82%, var(--ln-fg));
   position: absolute; inset: 0; background: var(--ln-bg); color: var(--ln-fg); outline: none;
-  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.4 var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
 }
 #reader .ln-root.ln-theme-black { --ln-bg: #000; --ln-fg: #c8c8c8; --ln-muted: #8a8a8a; }
 #reader .ln-root.ln-theme-sepia { --ln-bg: #f3ead7; --ln-fg: #3d3124; --ln-muted: #7b6a55; color-scheme: light; }
@@ -29,15 +39,10 @@
 #reader .ln-titles b, #reader .ln-titles span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 #reader .ln-titles span { color: var(--ln-muted); font-size: 13px; }
 #reader .ln-where { color: var(--ln-muted); font-size: 13px; font-variant-numeric: tabular-nums; text-align: center; }
-#reader .ln-icon {
-  display: inline-grid; place-items: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 10px;
-  background: transparent; color: inherit; cursor: pointer;
-}
-#reader .ln-icon:hover:not(:disabled) { background: var(--ln-line-c); }
-#reader .ln-icon:disabled { opacity: 0.3; cursor: default; }
-#reader .ln-icon:focus-visible, #reader .ln-btn:focus-visible, #reader .ln-panel button:focus-visible {
-  outline: 2px solid var(--ln-accent); outline-offset: 2px;
-}
+/* the bars' and panels' icon buttons: the kit's .iconbtn, flat until hovered */
+#reader .ln-bar, #reader .ln-panel-head { --btn-bg: transparent; --btn-border: transparent; --btn-height: 40px; }
+#reader .ln-root .iconbtn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+#reader .ln-root button:focus-visible { outline: 2px solid var(--ln-accent); outline-offset: 2px; }
 
 /* ---------------------------------------------------------------- the text */
 #reader .ln-view { position: absolute; inset: 0; }
@@ -71,13 +76,11 @@
 #reader .ln-end { margin: 3em 0 1em; text-align: center; break-inside: avoid; font-family: system-ui, sans-serif;
   font-size: 15px; line-height: 1.4; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 #reader .ln-end p { color: var(--ln-muted); margin: 0; }
-#reader .ln-btn {
-  min-height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--ln-line-c);
-  background: transparent; color: inherit; font: inherit; cursor: pointer; max-width: 100%;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-#reader .ln-btn.primary { background: var(--ln-accent); border-color: transparent; color: var(--accent-text, #1d0d07); font-weight: 600; }
-#reader .ln-message { text-align: center; margin-top: 30vh; font-family: system-ui, sans-serif; font-size: 15px; }
+/* a long chapter title on a button ends in … */
+#reader .ln-end .btn { max-width: 100%; }
+#reader .ln-end .btn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#reader .ln-message { text-align: center; margin-top: 30vh; font-family: var(--font-ui, system-ui, sans-serif); font-size: 15px; }
+#reader .ln-message .btn-row { justify-content: center; }
 
 /* ---------------------------------------------------------------- panels */
 #reader .ln-panel {
@@ -98,12 +101,8 @@
 #reader .ln-toc button.current { color: var(--ln-accent); font-weight: 600; }
 #reader .ln-setting { display: grid; gap: 6px; margin: 10px 0 14px; }
 #reader .ln-setting > span { color: var(--ln-muted); font-size: 13px; }
-#reader .ln-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-#reader .ln-chips button, #reader .ln-stepper button {
-  min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--ln-line-c);
-  background: transparent; color: inherit; font: inherit; cursor: pointer;
-}
-#reader .ln-chips button[aria-pressed="true"] { background: var(--ln-accent); color: var(--accent-text, #1d0d07); border-color: transparent; }
+/* a setting's choices: the kit's .segmented, as wide as the panel; the picked one a tile of the page's colour */
+#reader .ln-setting .segmented { display: flex; --segmented-bg: var(--surface2); --choice-on: var(--ln-bg); --choice-on-text: var(--ln-fg); }
 #reader .ln-stepper { display: flex; align-items: center; gap: 10px; }
 #reader .ln-stepper output { min-width: 2.5em; text-align: center; font-variant-numeric: tabular-nums; }
 

@@ -18,9 +18,10 @@ as for manga. This plugin is the reader that shows them.
 
 ## What you need
 
-- **MangaVibe 2.21.0 or newer** (Plugin API 14). Older versions list light novels under
-  **Settings → Needs attention → Not supported** and refuse to load this plugin (Settings → Plugins
-  says why).
+- **MangaVibe 3.11.0 or newer** (Plugin API 38). The reader's buttons and choices are MangaVibe's UI
+  kit, in its new look. Older versions refuse to load this plugin (Settings → Plugins says why). Before
+  2.21.0, light novels are listed under **Settings → Needs attention → Not supported**. On 2.21.0 to
+  3.10.x, use version 1.0.0 of this plugin.
 
 The easiest way to install it is **Settings → Plugins**: it's in MangaVibe's own plugin list. Or by
 hand, below.
